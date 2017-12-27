@@ -1,6 +1,8 @@
 package com.reactiveworks.learning.nifi;
 
 import java.io.IOException;
+
+
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringWriter;
@@ -8,6 +10,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.nifi.annotation.behavior.SideEffectFree;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -22,20 +25,12 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.io.InputStreamCallback;
 import org.apache.nifi.processor.io.OutputStreamCallback;
+import org.json.CDL;
 import org.json.JSONArray;
-import org.json.JSONObject;
-import org.json.XML;
-
-/**
- * This is the custom processor to convert json data into xml
- * 
- * @author Md Noorshid
- *
- */
 @SideEffectFree
-@Tags({"JSONToXML","Reactivworks"})
-@CapabilityDescription("Change JSON Object or Json Array into XML")
-public class JSONToXMLProcessor extends AbstractProcessor {
+@Tags({"CustomCSVToJSONProccesorWithHeader","reactiveworks"})
+@CapabilityDescription("Get a file and read all data from it, preserve all lines")
+public class CSVToJSONWithHeadersProcessor extends AbstractProcessor  {
 	public static final Relationship SUCCESS = new Relationship.Builder().name("SUCCESS").description("success flag")
 			.build();
 	public static final Relationship FAILURE = new Relationship.Builder().name("FAILURE").description("failure flag")
@@ -50,6 +45,7 @@ public class JSONToXMLProcessor extends AbstractProcessor {
 		logger.debug("inside init method......");
 		Set<Relationship> relationships = new HashSet<>();
 		relationships.add(SUCCESS);
+		relationships.add(FAILURE);
 		this.relationships = Collections.unmodifiableSet(relationships);
 	}
 
@@ -63,30 +59,12 @@ public class JSONToXMLProcessor extends AbstractProcessor {
 			logger.debug("flow file is null so whole process is getting back.....");
 			return;
 		}
-		JSONObject incomingJsonObj = null;
-		JSONArray incomingJsonArr = null;
-		String xml = null ;
-		String dataAsJson = readData(flowFile, session);
-		logger.debug("incoming data as String got:: " + dataAsJson);
-		if (dataAsJson.startsWith("{")) {
-			incomingJsonObj = new JSONObject(dataAsJson);
-			logger.debug("incoming data as Json Object:: " + incomingJsonObj);
-			xml = XML.toString(incomingJsonObj);
-		} else if (dataAsJson.startsWith("[")) {
-			incomingJsonArr = new JSONArray(dataAsJson);
-			logger.debug("incoming data as Json Array:: " + incomingJsonArr);
-			xml = XML.toString(incomingJsonArr);
-		}
-		logger.debug("xml:: " + xml);
-		value.set(xml);
-		String result = value.get();
-		if (result != null && result.isEmpty()) {
-			flowFile = session.putAttribute(flowFile, "match", result);
-		}
-
-		// To write the results back out of flow file
-		flowFile = session.write(flowFile, new OutputStreamCallback() {
-
+	  String csvData=readData(flowFile, session);
+	  logger.debug("incoming csvData:: "+csvData);
+	  JSONArray array = CDL.toJSONArray(csvData);
+	  logger.debug("array::  "+array);	
+	  value.set(array.toString());
+	  flowFile = session.write(flowFile, new OutputStreamCallback() {
 			@Override
 			public void process(OutputStream out) throws IOException {
 				out.write(value.get().getBytes());
@@ -98,7 +76,7 @@ public class JSONToXMLProcessor extends AbstractProcessor {
 	}
 
 	/**
-	 * Method to read the json data
+	 * Method to read the csv data
 	 * 
 	 * @param flowFile
 	 * @param session
